@@ -1,3 +1,5 @@
+hosts
 *.backup
 *.tfstate
 plan.*
+.terraform

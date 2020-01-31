@@ -5,6 +5,11 @@
   become: yes
   become_user: root
   tasks:
+   - name: Wait until instance is up
+     wait_for:
+       port: 22
+       timeout: 120
+       state: started
    - name: Disable IPv6 with sysctl
      sysctl: 
        name: "{{ item }}" 
