@@ -1,47 +1,34 @@
 # aws-exercise
 Exercise on AWS Infrastructure and configuration - using Terraform and Ansible
 
-## PLAN 1 - Details to be ironed out
+## FINAL SOLUTION
 
-1. Terraform spin up AWS EC2 instance - ubuntu 16 using AMI from marketplace - Done
-2. Configure ssh access in security group. - Done
-3. Ansible configure using terraform null_resource and remote-exec provisioner - TBD
-4. Terraform aws_ami_from_instance to create AMI from EC2 instance - Done
-5. Create required security groups for the ELB and EC2 instances - Done
-6. Spin up aws_asg and launch-configuration using the created AMI - Done
-7. Spin up aws_elb resource to provide load balancing - Done
-8. Terminate initial EC2 instance - Done (manual)
+There are two main steps:
+- Create an AMI with the appropriate configuration
+- Using the AMI, deploy a web server with an ASG running behind an ELB
 
-## PLAN 2 - Split the procedure into four steps
+This will ensure that if the web server instance goes down, the ASG 
+will spin up a new fully-configured instance and the web page will 
+continue to be served from the same address.
 
-1. Use tf to spin up instance with base Ubuntu image 
-2. Run ansible scripts to configure it  
-3. Run script to create AMI from configured instance
-4. Use tf to spin up AWS ELB, and ASG with the newly built AMI 
+### Security considerations
+1. HTTP access is enabled on port 80 to the ELB, from any IP. 
+2. HTTP access to the web server is possible only through the ELB.
+3. SSH access is enabled to the EC2 instance on port 22, but this 
+   is restricted to specific host IPs (defined in `vars.tf:home_ips` 
+   variable). 
+4. Have used EC2-classic instances plus Classic ELB by using default 
+   VPC. Security could further be enhanced by placing the resources 
+   in a dedicated VPC rather than in a shared environment.
+5. Ignoring strict host key checking to play ansible scripts.
 
-
-## Ansible configuration
-
-1. apt update
-2. disable ipv6 and set max files
-3. check NTP configuration using timedatectl
-4. install tree, python, python-pip, apache2, libapache2-mod-wsgi plus flask, virtualenv
-5. setup virtualenv
-6. copy .py, .wsgi and .conf files into appropriate directories
-7. disable default site
-8. enable new site
-9. restart apache2
-
-## Assumptions
-
-1. Ubuntu16 uses timedatectl to configure ntp. This comes pre-installed. Hence ntp is not installed.
-2. mtr and telnet are pre-installed - checked.
-3. There is no monitoring setup for the deployment (e.g. ELB access logs are not captured). 
-4. HTTP access is enabled on port 80 to the ELB, from any IP. 
-5. HTTP access to the web server is enabled only through the ELB.
-6. SSH access is enabled to the instance on port 22, but this is restricted to specific host IPs (defined in `vars.tf:home_ips` variable). 
-7. Though an ASG is used here, the deployment has not been tested for scale.
-
+### Assumptions
+1. Using Ubuntu-16 AMI available from AWS Marketplace should be good for base AMI. 
+2. Ubuntu-16 uses timedatectl to configure ntp. As this comes pre-installed, ntp is not installed. 
+3. mtr and telnet are pre-installed in the base AMI - hence not handled in ansible scripts. 
+4. There is no monitoring setup for the deployment (e.g. ELB access logs are not captured). 
+5. Only one EC2 instance will be spawned as part of the ASG.
+6. Though an ASG is used here, the deployment has not been tested for scale.
 
 ## Steps to Deploy
 
@@ -58,42 +45,54 @@ Exercise on AWS Infrastructure and configuration - using Terraform and Ansible
 4. On clicking Create, the `ATOUCH.pem.txt` file should be downloaded to your local machine.
 
 #### Configure ssh access
-1. Copy the "ATOUCH.pem.txt" file to `$HOME/.ssh/` and add the key to the ssh agent.
+1. Copy and rename the "ATOUCH.pem.txt" file to `$HOME/.ssh/ATOUCH.pem` and 
+   add the key to the ssh agent.
 ```
 cp ATOUCH.pem.txt ~/.ssh/ATOUCH.pem
 ssh-add ATOUCH.pem
 ```
 
-### Build AMI for deployment
+### Build AMI 
 Use tf to spin up EC2 instance and create AMI from it.
-The script uses a base Ubuntu-16 AMI and runs ansible scripts to configure it.
-A new AMI is created from the configured instance. 
+The script uses a base Ubuntu-16 AMI to setup a EC2 instance and then runs 
+ansible scripts to configure it. A new AMI is created from the fully-configured
+instance.
 ```
 git clone https://github.com/Kanshar/aws-exercise.git
-cd build-ami
+cd aws-exercise/build-ami
+
+# NOTE: 
+#   If you are using a different name (other than `~/.ssh/ATOUCH.pem`) for 
+#   the ssh key file, please update it in `vars.tf:ssh_key_file` variable.
+
 terraform init
 terraform plan -refresh -out=plan.a
 terraform apply plan.a
 ```
-NOTE: Please copy the `web_ami` value from the output of the last command.
+**NOTE**: Please copy the `web_ami` value from the output of the last command.
 
 ### Deploy
-The new AMI built above is deployed in an Auto scaling group with an ELB in front.
-Only one EC2 instance will be spawned as part of the ASG.
+The new AMI, built above, is copied to another AMI and deployed in an ASG 
+with an ELB in front. Copying the AMI allows the _build-ami_ infrastructure 
+to be taken down later without affecting the web server deployment. 
 ```
 cd ../web
-# Update `vars.tf:server_ami` variable with the `web_ami` value obtained above.
-# If you need to ssh into the instance, update `vars.tf:home_ips` variable with your host IP addresses.
+
+# NOTE:
+#   1. Update `vars.tf:server_ami` variable with the `web_ami` value obtained above.
+#   2. If you need to ssh into the instance, update `vars.tf:home_ips` variable with 
+#      your host IP addresses.
+
 terraform init
 terraform plan -refresh -out=plan.a
 terraform apply plan.a
 ```
 NOTE: Please copy the `elb_dns_name` value from the output of the last command.
 Open a browser and paste this value to the address bar.
-This should display **Hello Afterpay!**.
+This should display **Hello Afterpay!** (might have to refresh the page a few times).
 
-### Cleanup
-Use tf to clear up the resources used for building the AMI
+#### Cleanup resources used to build AMI
+Use tf to clean up the resources used for building the AMI
 ```
 cd ../build-ami
 terraform plan -destroy -out=plan.x

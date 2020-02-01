@@ -44,7 +44,7 @@ resource "null_resource" "RunAnsiblePlaybook" {
     command = "sleep 150"
   }
   provisioner "local-exec" {
-    command = "ansible-playbook --key-file ${var.ssh_key_file} -i ./hosts -u ubuntu ./ansible-scripts/install.yml"
+    command = "ansible-playbook --key-file ${var.ssh_key_file} --ssh-common-args='-o StrictHostKeyChecking=no -o ControlPersist=60s' -i ./hosts -u ubuntu ./ansible-scripts/install.yml"
   }
 }
 
