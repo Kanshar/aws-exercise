@@ -11,6 +11,10 @@ This will ensure that if the web server instance goes down, the ASG
 will spin up a new fully-configured instance and the web page will 
 continue to be served from the same address.
 
+_FUTURE ENHANCEMENT_ - *Could use a `build-ami` module which returns the 
+AMI ID. With this structure, only one `terraform apply` command will be 
+enough for configuration and deployment together.*
+
 ### Security considerations
 1. HTTP access is enabled on port 80 to the ELB, from any IP. 
 2. HTTP access to the web server is possible only through the ELB.
@@ -24,7 +28,7 @@ continue to be served from the same address.
 
 ### Assumptions
 1. Using Ubuntu-16 AMI available from AWS Marketplace should be good for base AMI. 
-2. Ubuntu-16 uses timedatectl to configure ntp. As this comes pre-installed, ntp is not installed. 
+2. Ubuntu-16 uses timedatectl to configure ntp. As this comes pre-installed, ntp is not installed. Only timezone (set to Melbourne/Australia) configuration is done.
 3. mtr and telnet are pre-installed in the base AMI - hence not handled in ansible scripts. 
 4. There is no monitoring setup for the deployment (e.g. ELB access logs are not captured). 
 5. Only one EC2 instance will be spawned as part of the ASG.
