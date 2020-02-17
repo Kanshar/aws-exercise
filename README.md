@@ -11,9 +11,12 @@ This will ensure that if the web server instance goes down, the ASG
 will spin up a new fully-configured instance and the web page will 
 continue to be served from the same address.
 
-_FUTURE ENHANCEMENT_ - *Could use a `build-ami` module which returns the 
+_FUTURE ENHANCEMENT_ - 
+ - *Could use a `build-ami` module which returns the 
 AMI ID. With this structure, only one `terraform apply` command will be 
 enough for configuration and deployment together.*
+ -  *Probably use a VPC with a bastion host to secure ssh access to the 
+web server.*
 
 ### Security considerations
 1. HTTP access is enabled on port 80 to the ELB, from any IP. 
